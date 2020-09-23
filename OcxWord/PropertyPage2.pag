@@ -1,0 +1,210 @@
+VERSION 5.00
+Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.1#0"; "COMDLG32.OCX"
+Begin VB.PropertyPage PropertyPage2 
+   Caption         =   "Choix d'une table..."
+   ClientHeight    =   3465
+   ClientLeft      =   0
+   ClientTop       =   0
+   ClientWidth     =   6225
+   PaletteMode     =   0  'Halftone
+   ScaleHeight     =   3465
+   ScaleWidth      =   6225
+   Begin VB.TextBox txtDatabaseName 
+      Height          =   330
+      Left            =   120
+      TabIndex        =   7
+      Top             =   1335
+      Width           =   2130
+   End
+   Begin VB.CommandButton CmdOpen 
+      Appearance      =   0  'Flat
+      Height          =   495
+      Left            =   2715
+      Picture         =   "PropertyPage2.pgx":0000
+      Style           =   1  'Graphical
+      TabIndex        =   5
+      Top             =   45
+      Width           =   615
+   End
+   Begin VB.ListBox LstChamp 
+      Appearance      =   0  'Flat
+      Height          =   2175
+      Left            =   2745
+      OLEDragMode     =   1  'Automatic
+      OLEDropMode     =   1  'Manual
+      TabIndex        =   4
+      Top             =   840
+      Width           =   3135
+   End
+   Begin VB.CommandButton Command2 
+      Caption         =   "Liste des Champ Disponibles..."
+      Height          =   225
+      Left            =   2730
+      TabIndex        =   3
+      Top             =   615
+      Width           =   3135
+   End
+   Begin VB.ComboBox Combo1 
+      Height          =   315
+      Left            =   105
+      TabIndex        =   2
+      Text            =   "Combo1"
+      Top             =   465
+      Width           =   2175
+   End
+   Begin VB.TextBox txtRecordSource 
+      Height          =   330
+      Left            =   105
+      TabIndex        =   1
+      Top             =   915
+      Visible         =   0   'False
+      Width           =   2130
+   End
+   Begin MSComDlg.CommonDialog CommonDialog1 
+      Left            =   375
+      Top             =   2085
+      _ExtentX        =   847
+      _ExtentY        =   847
+      _Version        =   327680
+      FileName        =   "*.doc"
+      Filter          =   "Document Word"
+   End
+   Begin VB.Label Label1 
+      Caption         =   "Sélectionner un fichier Word..."
+      Height          =   255
+      Left            =   3420
+      TabIndex        =   6
+      Top             =   165
+      Width           =   2535
+   End
+   Begin VB.Shape Shape1 
+      BackColor       =   &H00000000&
+      BackStyle       =   1  'Opaque
+      Height          =   2370
+      Left            =   2820
+      Top             =   675
+      Width           =   3075
+   End
+   Begin VB.Label lblRecordSource 
+      Caption         =   "Table servant au mailing :"
+      Height          =   240
+      Left            =   90
+      TabIndex        =   0
+      Top             =   120
+      Width           =   2085
+   End
+End
+Attribute VB_Name = "PropertyPage2"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = True
+Public wordo As Object
+
+Private Sub CmdOpen_Click()
+    On Error GoTo gesterr
+    Dim fichier As String
+    CommonDialog1.CancelError = True
+    CommonDialog1.ShowOpen
+    fichier = CommonDialog1.filename
+    On Error GoTo 0
+    Set wordo = CreateObject("Word.Application")
+    wordo.Visible = True
+    wordo.Documents.Open fichier
+    Exit Sub
+gesterr:
+    If Err = cdlCancel Then
+    Exit Sub
+    End If
+
+End Sub
+
+Private Sub Combo1_Click()
+ txtRecordSource.Text = Combo1.Text
+ rafrachamp
+End Sub
+
+Private Sub rafrachamp()
+Dim X As Integer
+Dim db As Database
+Dim Table As TableDef
+Dim champ As Field
+LstChamp.Clear
+Set db = OpenDatabase(txtDatabaseName.Text)
+Set Table = db.TableDefs(txtRecordSource.Text)
+For X = 0 To Table.Fields.Count - 1
+    Set champ = Table.Fields(X)
+    LstChamp.AddItem (champ.Name)
+Next X
+db.Close
+End Sub
+
+Private Sub LstChamp_DblClick()
+   On Error GoTo gesterr
+   wordo.Application.Activate
+   wordo.Selection.Fields.Add Range:=Selection.Range, Type:=wdFieldEmpty, Text:="CHAMPFUSION" & " " & LstChamp.Text & """, PreserveFormatting:=True"
+   Exit Sub
+gesterr:
+   MsgBox "Vous devez sélectionner un document word", vbExclamation + vbOKOnly, "Attention"
+   CmdOpen_Click
+
+End Sub
+
+Private Sub LstChamp_OLECompleteDrag(Effect As Long)
+   wordo.Application.Activate
+   wordo.Selection.Fields.Add Range:=Selection.Range, Type:=wdFieldEmpty, Text:="CHAMPFUSION" & " " & LstChamp.Text & """, PreserveFormatting:=True"
+End Sub
+Private Sub LstChamp_OLEStartDrag(Data As DataObject, AllowedEffects As Long)
+   On Error GoTo gesterr
+   Data = Nothing
+   wordo.ActiveDocument.Activate
+    Exit Sub
+gesterr:
+Exit Sub
+End Sub
+
+Private Sub PropertyPage_Paint()
+Dim X As Integer
+Dim db As Database
+Dim Table As TableDef
+If txtDatabaseName.Text = "" Then
+CmdOpen.Enabled = False
+Combo1.Text = "No fields"
+Exit Sub
+End If
+Set db = OpenDatabase(txtDatabaseName.Text)
+Combo1.Clear
+For X = 0 To db.TableDefs.Count - 1
+    Set Table = db.TableDefs(X)
+    If (Table.Attributes And dbSystemObject) = 0 Then
+    Combo1.AddItem (Table.Name)
+    End If
+Next X
+If txtRecordSource.Text <> "" Then
+Combo1.Text = txtRecordSource.Text
+Else
+Combo1.ListIndex = 0
+End If
+db.Close
+rafrachamp
+End Sub
+
+Private Sub txtDatabaseName_Change()
+    Changed = True
+End Sub
+
+Private Sub txtRecordSource_Change()
+    Changed = True
+End Sub
+
+Private Sub PropertyPage_ApplyChanges()
+    SelectedControls(0).RecordSource = txtRecordSource.Text
+    SelectedControls(0).DatabaseName = txtDatabaseName.Text
+End Sub
+
+Private Sub PropertyPage_SelectionChanged()
+    txtRecordSource.Text = SelectedControls(0).RecordSource
+    txtDatabaseName.Text = SelectedControls(0).DatabaseName
+End Sub
+
+
